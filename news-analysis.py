@@ -22,6 +22,7 @@ import numpy as np
 
 # nlp library to analyse sentiment
 import nltk
+#nltk.download('vader_lexicon')
 import pytz
 from nltk.sentiment import SentimentIntensityAnalyzer
 
@@ -40,77 +41,43 @@ from itertools import count
 # we use it to time our parser execution speed
 from timeit import default_timer as timer
 
+import hmac
+
+# import config file
+import yaml
+
+with open("config.yml", "r") as ymlfile:
+    cfg = yaml.load(ymlfile,Loader=yaml.FullLoader)
+
+
 # Use testnet (change to True) or live (change to False)?
-testnet = True
+testnet = cfg['testnet']
 
 # get binance key and secret from environment variables for testnet and live
-api_key_test = os.getenv('binance_api_stalkbot_testnet')
-api_secret_test = os.getenv('binance_secret_stalkbot_testnet')
 
-api_key_live = os.getenv('binance_api_stalkbot_live')
-api_secret_live = os.getenv('binance_secret_stalkbot_live')
 
 # Authenticate with the client
-if testnet:
-    client = Client(api_key_test, api_secret_test)
-else:
-    client = Client(api_key_live, api_secret_live)
+client = Client(cfg['binance']['api_key'], cfg['binance']['api_secret'])
 
 # The API URL is manually changed in the library to work on the testnet
 if testnet:
     client.API_URL = 'https://testnet.binance.vision/api'
-
-
+else:
+    'not implemented'
 
 
 ############################################
 #     USER INPUT VARIABLES LIVE BELOW      #
 # You may edit those to configure your bot #
 ############################################
-
-
-# select what coins to look for as keywords in articles headlines
-# The key of each dict MUST be the symbol used for that coin on Binance
-# Use each list to define keywords separated by commas: 'XRP': ['ripple', 'xrp']
-# keywords are case sensitive
-keywords = {
-    'XRP': ['ripple', 'xrp', 'XRP', 'Ripple', 'RIPPLE'],
-    'BTC': ['BTC', 'bitcoin', 'Bitcoin', 'BITCOIN'],
-    'XLM': ['Stellar Lumens', 'XLM'],
-    #'BCH': ['Bitcoin Cash', 'BCH'],
-    'ETH': ['ETH', 'Ethereum'],
-    'BNB' : ['BNB', 'Binance Coin'],
-    'LTC': ['LTC', 'Litecoin']
-    }
-
-# The Buy amount in the PAIRING symbol, by default USDT
-# 100 will for example buy the equivalent of 100 USDT in Bitcoin.
-QUANTITY = 100
-
-# define what to pair each coin to
-# AVOID PAIRING WITH ONE OF THE COINS USED IN KEYWORDS
-PAIRING = 'USDT'
-
-# define how positive the news should be in order to place a trade
-# the number is a compound of neg, neu and pos values from the nltk analysis
-# input a number between -1 and 1
-SENTIMENT_THRESHOLD = 0
-NEGATIVE_SENTIMENT_THRESHOLD = 0
-
-# define the minimum number of articles that need to be analysed in order
-# for the sentiment analysis to qualify for a trade signal
-# avoid using 1 as that's not representative of the overall sentiment
-MINUMUM_ARTICLES = 1
-
-# define how often to run the code (check for new + try to place trades)
-# in minutes
-REPEAT_EVERY = 60
-
-# define how old an article can be to be included
-# in hours
-HOURS_PAST = 24
-
-
+keywords = cfg['coins']
+QUANTITY = cfg['quantity']
+PAIRING = cfg['PAIRING']
+SENTIMENT_THRESHOLD = cfg['SENTIMENT_THRESHOLD']
+NEGATIVE_SENTIMENT_THRESHOLD = cfg['NEGATIVE_SENTIMENT_THRESHOLD']
+MINIMUM_ARTICLES = cfg['MINIMUM_ARTICLES']
+REPEAT_EVERY = cfg['REPEAT_EVERY']
+HOURS_PAST = cfg['HOURS_PAST']
 ############################################
 #        END OF USER INPUT VARIABLES       #
 #             Edit with care               #
@@ -371,7 +338,7 @@ def buy(compiled_sentiment, headlines_analysed):
 
 
         # check if the sentiment and number of articles are over the given threshold
-        if compiled_sentiment[coin] > SENTIMENT_THRESHOLD and headlines_analysed[coin] >= MINUMUM_ARTICLES and coins_in_hand[coin]==0:
+        if compiled_sentiment[coin] > SENTIMENT_THRESHOLD and headlines_analysed[coin] >= MINIMUM_ARTICLES and coins_in_hand[coin]==0:
             # check the volume looks correct
             print(f'preparing to buy {volume[coin+PAIRING]} {coin} with {PAIRING} at {CURRENT_PRICE[coin+PAIRING]}')
 
@@ -424,7 +391,7 @@ def sell(compiled_sentiment, headlines_analysed):
     for coin in compiled_sentiment:
 
         # check if the sentiment and number of articles are over the given threshold
-        if compiled_sentiment[coin] < NEGATIVE_SENTIMENT_THRESHOLD and headlines_analysed[coin] >= MINUMUM_ARTICLES and coins_in_hand[coin]>0:
+        if compiled_sentiment[coin] < NEGATIVE_SENTIMENT_THRESHOLD and headlines_analysed[coin] >= MINIMUM_ARTICLES and coins_in_hand[coin]>0:
 
             # check the volume looks correct
             print(f'preparing to sell {coins_in_hand[coin]} {coin} at {CURRENT_PRICE[coin+PAIRING]}')
